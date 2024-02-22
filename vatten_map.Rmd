@@ -1,0 +1,57 @@
+
+---
+title: "Interaktiv riskvattenkarta"
+---
+ 
+
+```{r, echo = F, message = F}
+
+library(pacman)
+
+p_load(dplyr, ggplot2, leaflet, sf)
+
+
+```
+
+
+```{r, echo = F}
+###
+
+df_sf <- read_sf("data/vd_l_2016_3.shp")
+
+df_sf_wgs84 <- st_transform(df_sf, crs = st_crs(4326))
+
+###
+
+lake_trout <- read.csv(file="data/Kanadaröding 2021-02-21 till GIS.csv", sep=";")
+
+coordinates <- lake_trout[, c("X", "Y")]
+coordinates_df <- data.frame(coordinates)
+spatial_object <- st_as_sf(coordinates_df, coords = c("X", "Y"), crs = 3847)
+spatial_object2 <- st_transform(spatial_object, crs = st_crs(4326))
+spatial_object2 <- cbind(spatial_object2, lake_trout)
+
+df_lake_trout <- spatial_object2
+
+df_lake_trout_joined <- st_join(df_lake_trout, df_sf_wgs84, join = st_nearest_feature, dist = 1500)
+df_lake_trout_joined2 <- df_lake_trout_joined[which(df_lake_trout_joined$LINJEKOD < 26),]
+test <- read_sf("data/kanadaroding.shp")
+
+```
+
+
+```{r, echo = F, out.width = '1000', out.height = '700'}
+
+
+
+leaflet() %>% addProviderTiles("Esri.WorldImagery") %>%
+  addCircleMarkers(data=df_lake_trout_joined2, fillColor="pink", color="red", fillOpacity = 1,  radius = 3,
+                   group="Utsättningsplatser") %>%
+  addLayersControl(overlayGroups = c("Utsättningsplatser", "Spridning"), 
+                   options = layersControlOptions(collapsed = FALSE, autoZIndex = TRUE)) %>%
+  addPolylines(data=test %>% filter(LINJEKOD != 26), color="pink", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=2,
+               group="Spridning")
+
+
+```
+
