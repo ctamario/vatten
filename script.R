@@ -10,6 +10,7 @@ getwd()
 
 ### Handling the GIS data
 df_sf <- read_sf("data/vd_l_2016_3.shp")
+df_sf <- read_sf("C:/Users/caio0001/Documents/test/vd_l_2016_3_RivEX.shp")
 
 # reproject to WGS84 to make everything compatible?
 
@@ -488,8 +489,8 @@ old_rstids <- rstids %>% filter(count == 2)
 new_rstids <- rstids %>% filter(count == 1)
 
 leaflet() %>% addProviderTiles("Esri.WorldImagery") %>% 
-  addPolylines(data=connectivity_vhinder3 %>% filter(RSTID %in% new_rstids$RSTID & LINJEKOD < 26 & SWE > 0), color="red", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=2) %>%
-  addPolylines(data=connectivity_vhinder %>% filter(RSTID %in% old_rstids$RSTID & LINJEKOD < 26 & SWE > 0), color="white", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=2)# %>%
+  addPolylines(data=connectivity_vhinder3 %>% filter(RSTID %in% new_rstids$RSTID & LINJEKOD < 26 & SWE > 0), color="red", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=~log(Strahler+2), opacity=1) %>%
+  addPolylines(data=connectivity_vhinder %>% filter(RSTID %in% old_rstids$RSTID & LINJEKOD < 26 & SWE > 0), color="white", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=~log(Strahler+2), opacity=1)# %>%
   #addPolygons(data=haro_wgs84_big, popup=~paste(HARO))
   ##addCircleMarkers(data = dams_all2 %>% filter(RSTID %in% connectivity_vhinder2$RSTID) %>%
   ##                   filter(RSTID != 67574770355019) %>% filter(RSTID != 67306520369160), popup=~paste(RSTID, 
@@ -500,15 +501,14 @@ df_sf_wgs84$length <- st_length(df_sf_wgs84)
 connectivity_vhinder$length <- st_length(connectivity_vhinder)
 connectivity_vhinder3$length <- st_length(connectivity_vhinder3)
 
-all_rivers <- df_sf_wgs84 %>% filter(LINJEKOD < 26 & SWE > 0)
+all_rivers <- df_sf_wgs84 %>% filter(LINJEKOD < 26 & SWE > 0) #%>% filter(LINJEKOD != 21) %>% filter(LINJEKOD != 22)
 
+all_rivers$HARO <- floor(as.numeric(str_extract(all_rivers$RW_PopNamn, "\\d{4,6}"))/1000)
+connectivity_vhinder$HARO <- floor(as.numeric(str_extract(connectivity_vhinder$RW_PopNamn, "\\d{4,6}"))/1000)
+connectivity_vhinder3$HARO <- floor(as.numeric(str_extract(connectivity_vhinder3$RW_PopNamn, "\\d{4,6}"))/1000)
 
-all_rivers$HARO <- str_extract(all_rivers$RW_PopNamn, "\\d{4,5}")
-connectivity_vhinder$HARO <- str_extract(connectivity_vhinder$RW_PopNamn, "\\d{4,5}")
-connectivity_vhinder3$HARO <- str_extract(connectivity_vhinder3$RW_PopNamn, "\\d{4,5}")
-
-connectivity_vhinder_2 <- connectivity_vhinder %>% filter(LINJEKOD < 26 & SWE > 0)
-connectivity_vhinder3_2 <- connectivity_vhinder3 %>% filter(LINJEKOD < 26 & SWE > 0)
+connectivity_vhinder_2 <- connectivity_vhinder %>% filter(LINJEKOD < 26 & SWE > 0) #%>% filter(LINJEKOD != 21) %>% filter(LINJEKOD != 22)
+connectivity_vhinder3_2 <- connectivity_vhinder3 %>% filter(LINJEKOD < 26 & SWE > 0) #%>% filter(LINJEKOD != 21) %>% filter(LINJEKOD != 22)
 
 river_per_haro <- as.data.frame(all_rivers) %>% group_by(HARO) %>% summarise(n = n(), sum_length = sum(length))
 river_per_haro_available <- as.data.frame(connectivity_vhinder_2) %>% group_by(HARO) %>% summarise(n_avail = n(), avail_length = sum(length))
@@ -517,6 +517,29 @@ river_per_haro_available_FW <- as.data.frame(connectivity_vhinder3_2) %>% group_
 river_per_haro_both <- river_per_haro %>% left_join(river_per_haro_available, by="HARO")
 river_per_haro_all_three <- river_per_haro_both %>% left_join(river_per_haro_available_FW, by="HARO")
 
+river_per_haro_all_three$rel_length_fw <- river_per_haro_all_three$avail_length_fw / river_per_haro_all_three$sum_length
+
+river_per_haro_all_three_large <- river_per_haro_all_three
+
+#river_per_haro_all_three_large$HARO2 <- floor(as.numeric(river_per_haro_all_three_large$HARO)/1000)
+
+#river_per_haro_all_three_large <- river_per_haro_all_three %>% filter(as.numeric(HARO) %% 10 == 0)
+
+#river_per_haro_all_three_large %>% ggplot(aes(x=n, y=as.numeric(sum_length))) + geom_point()
+
+summary(as.numeric(river_per_haro_all_three_large$rel_length_fw))
+
+river_per_haro_all_three_large %>% ggplot(aes(x=as.numeric(sum_length), y=as.numeric(rel_length_fw))) + 
+  geom_point() + 
+  labs(x="Size of river catchment", y="Proportion that is accessible from sea")+
+  #scale_x_continuous(trans = "log")+
+  geom_smooth(
+    method = 'glm', 
+    formula = y ~ x, 
+    method.args = list(family = gaussian(link = 'log'))
+  )+
+  theme_classic() +
+  geom_text(label=river_per_haro_all_three_large$HARO, nudge_x=0.1, nudge_y=0.01, check_overlap=T)
 
 #river_per_haro_both$rel_length <- river_per_haro_both$avail_length / river_per_haro_both$sum_length
 
@@ -547,12 +570,15 @@ sum(river_per_haro_all_three$avail_length_fw) / sum(river_per_haro_all_three$sum
 
 
 leaflet() %>% addProviderTiles("Esri.WorldImagery") %>% 
-  addPolylines(data=connectivity_vhinder3 %>% filter(LINJEKOD < 26 & SWE > 0) %>% filter(HARO != 28000 & HARO != 13000 & HARO != 4000 & HARO != 1000), color="red", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=2)
+  addPolylines(data=connectivity_vhinder3_2 %>% filter(LINJEKOD < 26 & SWE > 0) %>% filter(HARO != 28000 & HARO != 13000 & HARO != 4000 & HARO != 1000), color="red", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=2)
 
 segments_with_dams <- connectivity_vhinder$RSTID[connectivity_vhinder$RSTID %in% dams_all2$RSTID]
 
 ###
 
+bla <- AIV %>% dplyr::filter(HuvAtgtyp == "Fiskvägar")
+
+bla$Atgtyper
 
 ####
 
