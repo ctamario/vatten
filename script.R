@@ -433,6 +433,31 @@ dams_all2 <- dams_all2 %>% filter(is.na(NOT_BARRIERS))
 
 dams_all2$CalleID <- 1:nrow(dams_all2)
 
+####
+
+table(dams_all2$Vandringshindertyp, useNA = "always")
+
+
+####
+
+dams_all2_SWEREF <- dams_all2 %>% st_transform(crs = st_crs(3006))
+
+dams_all2
+
+dams_all2_SWEREF$SWEREF99E <- st_coordinates(dams_all2_SWEREF)[,1]
+dams_all2_SWEREF$SWEREF99N <- st_coordinates(dams_all2_SWEREF)[,2]
+
+
+stacked <- duplicated(st_coordinates(dams_all2_SWEREF)) | duplicated(st_coordinates(dams_all2_SWEREF), fromLast = TRUE)
+
+dams_all2_SWEREF_unique <- dams_all2_SWEREF[!stacked, ]
+
+#table(is.na(dams_all2_SWEREF_unique$SWEREF99N), useNA="always")
+
+  
+write.table(dams_all2_SWEREF_unique, file="data/dams_out_all2.csv", row.names=F, sep=";")
+
+
 #### 
 
 dams_w_FPS <- dams_all2
@@ -487,6 +512,32 @@ connectivity_vhinder3 <- df_sf_wgs84[which(df$RSTID %in% up_seg_all4(df, one_seg
 rstids <- data.frame(RSTID=c(connectivity_vhinder$RSTID, connectivity_vhinder3$RSTID)) %>% group_by(RSTID) %>% summarise(count = n())
 old_rstids <- rstids %>% filter(count == 2)
 new_rstids <- rstids %>% filter(count == 1)
+
+test <- connectivity_vhinder %>% filter(RSTID %in% old_rstids$RSTID & LINJEKOD < 26 & SWE > 0) %>% mutate(CONNECTED = 1)
+
+test2 <- df_sf_wgs84 %>% filter(LINJEKOD < 26 & SWE > 0) %>% left_join(as.data.frame(test) %>% select(RSTID, CONNECTED), by = "RSTID") 
+
+table(test2$CONNECTED, useNA="always")
+
+test2$CONNECTED[is.na(test2$CONNECTED)] <- 0
+
+table(test2$CONNECTED, useNA="always")
+
+propData <- table(test2$Strahler, test2$CONNECTED)/length(test2$Strahler)
+propData2 <- table(test2$Strahler, test2$CONNECTED)
+propData2_df <- as.data.frame(propData2)
+names(propData2_df) <- c("Strahler", "Connected", "Freq")
+
+chisq.test(propData2)
+
+propData2_df %>% ggplot(aes(x=Strahler, y=Freq, fill=Connected)) + 
+  geom_bar(stat = "identity", position="fill", width=1)#+
+  #geom_bar(stat = "identity", width=1)
+
+1-propData[,1]/(propData[,1]+propData[,2])
+
+sum(st_length(df_sf_wgs84))
+
 
 leaflet() %>% addProviderTiles("Esri.WorldImagery") %>% 
   addPolylines(data=connectivity_vhinder3 %>% filter(RSTID %in% new_rstids$RSTID & LINJEKOD < 26 & SWE > 0), color="red", popup=~paste(RSTID, RW_PopNamn, sep="<br>"), weight=~log(Strahler+2), opacity=1) %>%
