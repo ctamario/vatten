@@ -5,7 +5,7 @@ library(pacman)
 
 p_load(sf, dplyr, stringr, leaflet, ggplot2)
 
-
+setwd("C:/Users/caio0001/Documents/git/vatten")
 getwd()
 
 ### Handling the GIS data
@@ -403,6 +403,17 @@ table(dams_all$Vandringshindertyp, dams_all$SOURCE, useNA = "always")
 
 
 #write_sf(dams_test, "C:/temp/omfg2.shp")
+
+###
+### temp
+
+testar <- vhinder_sf_joined_only_near %>% group_by(VandringshinderID) %>% mutate(antal_inventeringar = n())
+
+with(testar, table(antal_inventeringar, Relevant))
+
+testar2 <- testar %>% filter(Relevant == "SANT")
+
+table(as.data.frame(table(testar2$VandringshinderID))$Freq)
 
 ####
 ####

@@ -15,7 +15,12 @@ p_load(sf, dplyr, stringr, leaflet, geos)
 getwd()
 
 
+
 df_sf <- read_sf("data/vd_l_2016_3.shp")
+df_sf <- read_sf("C:/Users/caio0001/Documents/ArcGIS/Projects/Sveriges_vatten/data/dams_all_out_20240909.shp")
+
+str(df_sf)
+
 
 
 df_sf_wgs84 <- st_transform(df_sf, crs = st_crs(4326))
